@@ -65,10 +65,11 @@ pub enum Agent {
     Letta,
     Maki,
     Muse,
+    DshTui,
 }
 
 impl Agent {
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -93,6 +94,7 @@ impl Agent {
         Self::Letta,
         Self::Maki,
         Self::Muse,
+        Self::DshTui,
     ];
 
     pub const SCREEN_MANIFEST_AGENTS: [Self; 22] = [
@@ -147,6 +149,7 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Letta => "letta",
         Agent::Maki => "maki",
         Agent::Muse => "muse",
+        Agent::DshTui => "dsh-tui",
     }
 }
 
@@ -182,6 +185,7 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Letta => "letta",
         Agent::Maki => "maki",
         Agent::Muse => "muse",
+        Agent::DshTui => "dsh-tui",
     }
 }
 
@@ -222,6 +226,7 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "letta" | "letta-code" | "letta code" => Some(Agent::Letta),
         "maki" => Some(Agent::Maki),
         "muse" | "muse-code" | "muse-cli" => Some(Agent::Muse),
+        "dsh-tui" | "dsh_tui" | "dsh tui" => Some(Agent::DshTui),
         _ if is_muse_versioned_binary(name) => Some(Agent::Muse),
         _ => None,
     }
@@ -336,6 +341,9 @@ pub(crate) fn full_lifecycle_hook_authority(source: &str, agent_label: &str) -> 
             | ("herdr:opencode", "opencode")
             | ("herdr:kilo", "kilo")
             | ("herdr:kimi", "kimi")
+            // dsh-tui owns its integration and reports the full lifecycle
+            // (idle/working/blocked) under its own source prefix.
+            | ("custom:dsh-tui", "dsh-tui")
     )
 }
 
@@ -1011,6 +1019,12 @@ mod tests {
         assert_eq!(identify_agent("muse-cli"), Some(Agent::Muse));
         assert_eq!(identify_agent("muse-bin-0.1.0-R708.1"), Some(Agent::Muse));
         assert_eq!(identify_agent("muse-bin-1.2.3"), Some(Agent::Muse));
+        assert_eq!(identify_agent("dsh-tui"), Some(Agent::DshTui));
+        assert_eq!(identify_agent("dsh_tui"), Some(Agent::DshTui));
+        assert_eq!(
+            identify_agent("/Users/user/.local/bin/dsh-tui"),
+            Some(Agent::DshTui)
+        );
         assert_eq!(
             identify_agent("/home/user/.local/bin/muse-bin-0.2.1-R1215.1"),
             Some(Agent::Muse)
@@ -1092,6 +1106,7 @@ mod tests {
             (Agent::Letta, "letta"),
             (Agent::Maki, "maki"),
             (Agent::Muse, "muse"),
+            (Agent::DshTui, "dsh-tui"),
         ];
         assert_eq!(expected.len(), Agent::ALL.len());
         for (agent, executable) in expected {
@@ -1114,6 +1129,12 @@ mod tests {
             "mastracode"
         ));
         assert!(!Agent::SCREEN_MANIFEST_AGENTS.contains(&Agent::Mastracode));
+    }
+
+    #[test]
+    fn dsh_tui_is_hook_authority_without_screen_manifest() {
+        assert!(full_lifecycle_hook_authority("custom:dsh-tui", "dsh-tui"));
+        assert!(!Agent::SCREEN_MANIFEST_AGENTS.contains(&Agent::DshTui));
     }
 
     #[test]
